@@ -1,0 +1,110 @@
+<!doctype html>
+<html lang="zh-Hant">
+  <head>
+    <meta charset="utf-8" />
+    <title>我的第一個 A-Frame VR 小遊戲</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+
+    <!-- A-Frame 核心（CDN 版）-->
+    <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
+
+    <style>
+      body { margin: 0; }
+      .hint {
+        position: absolute; left: 12px; bottom: 12px; padding: 8px 10px;
+        background: rgba(0,0,0,.5); color: #fff; font: 14px/1.4 sans-serif; border-radius: 6px;
+      }
+    </style>
+  </head>
+  <body>
+    <a-scene
+      renderer="antialias: true"
+      xr-mode-ui="enabled: true"
+      webxr="optionalFeatures: local-floor, bounded-floor, hand-tracking"
+    >
+      <!-- 天空：藍色 -->
+      <a-sky color="#87CEEB"></a-sky>
+
+      <!-- 地面：綠色 -->
+      <a-plane color="#3CB371" rotation="-90 0 0" width="30" height="30" shadow></a-plane>
+
+      <!-- 中間的灰色方塊（可互動：點擊會小跳一下換色）-->
+      <a-box id="box"
+             position="0 1 -3"
+             color="#888888"
+             depth="1" height="1" width="1"
+             shadow
+      ></a-box>
+
+      <!-- 簡單光源 -->
+      <a-entity light="type: ambient; intensity: 0.6"></a-entity>
+      <a-entity light="type: directional; intensity: 0.8" position="0 4 -2"></a-entity>
+
+      <!-- 玩家 / 相機（桌機可用 WASD/滑鼠，VR 裝置會自帶頭部追蹤）-->
+      <a-entity id="rig" position="0 1.6 0">
+        <a-entity camera look-controls wasd-controls></a-entity>
+
+        <!-- VR 控制器雷射（Quest 3S 會自動綁定），可指向方塊點擊 -->
+        <a-entity laser-controls="hand: right"></a-entity>
+        <a-entity laser-controls="hand: left"></a-entity>
+
+        <!-- 退而求其次：凝視游標（沒手把時可用），停 600ms 也算點擊 -->
+        <a-entity cursor="fuse: true; fuseTimeout: 600"
+                  position="0 0 -1"
+                  geometry="primitive: ring; radiusInner: 0.005; radiusOuter: 0.008"
+                  material="shader: flat">
+        </a-entity>
+      </a-entity>
+
+      <!-- 小遊戲邏輯：點方塊會彈跳 + 變色 -->
+      <script>
+        AFRAME.registerComponent('bouncy', {
+          init: function () {
+            const el = this.el;
+            const colors = ['#888888', '#FFC65D', '#7BC8A4', '#F16745', '#9368E9'];
+            let idx = 0, jumping = false, baseY = el.object3D.position.y;
+
+            function bounce() {
+              if (jumping) return;
+              jumping = true;
+              idx = (idx + 1) % colors.length;
+              el.setAttribute('color', colors[idx]);
+
+              const start = performance.now();
+              const duration = 450; // ms
+
+              function step(t) {
+                const k = Math.min(1, (t - start) / duration);
+                // 簡單的拋物線軌跡：
+                const y = baseY + 0.8 * Math.sin(k * Math.PI);
+                el.object3D.position.y = y;
+                if (k < 1) requestAnimationFrame(step);
+                else {
+                  el.object3D.position.y = baseY;
+                  jumping = false;
+                }
+              }
+              requestAnimationFrame(step);
+            }
+
+            el.addEventListener('click', bounce);
+            el.addEventListener('mouseenter', () => el.setAttribute('scale', '1.05 1.05 1.05'));
+            el.addEventListener('mouseleave', () => el.setAttribute('scale', '1 1 1'));
+          }
+        });
+
+        // 套上 bouncy 行為
+        document.addEventListener('DOMContentLoaded', () => {
+          const box = document.getElementById('box');
+          box.setAttribute('bouncy', '');
+        });
+      </script>
+    </a-scene>
+
+    <div class="hint">
+      桌機：滑鼠拖曳視角，W/A/S/D 移動；<br>
+      VR：按下畫面右下角的「戴頭盔」圖示進入。<br>
+      小遊戲：用雷射或凝視「點」灰色方塊，它會彈一下並換色。
+    </div>
+  </body>
+</html>
